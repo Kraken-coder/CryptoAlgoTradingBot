@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import sys
 import os
@@ -113,6 +113,20 @@ def calculate_metrics(closed_trades):
 # --- Dashboard Layout ---
 
 st.title("🚀 Live Trading Dashboard")
+
+# --- Info Note ---
+now_utc = datetime.utcnow()
+current_block_start_hour = (now_utc.hour // 4) * 4
+current_candle_open = now_utc.replace(hour=current_block_start_hour, minute=0, second=0, microsecond=0)
+last_completed_candle_open = current_candle_open - timedelta(hours=4)
+last_completed_candle_close = current_candle_open
+
+st.info(f"""
+**ℹ️ Trading Info:**
+- The bot executes trades **only** at the close of 4-hour candles (00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC).
+- Predictions displayed here are based on the **current incomplete candle** and may change before the candle closes.
+- **Last Actual 4-Hour Candle:** {last_completed_candle_open.strftime('%Y-%m-%d %H:%M')} UTC (Closed at {last_completed_candle_close.strftime('%H:%M')})
+""")
 
 # 1. Portfolio Overview
 total_value, balances, current_prices = get_portfolio_value()
