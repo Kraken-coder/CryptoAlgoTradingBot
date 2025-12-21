@@ -235,20 +235,40 @@ def get_prediction(symbol):
         
         # Calculate Features
         df_features = fe.calculate_features(df)
-        latest_data = df_features.iloc[[-1]].copy()
-        X = fe.get_feature_data(latest_data)
         
-        if X.isnull().values.any():
-            return None, "Insufficient Data"
+        # --- 1. Current (Incomplete) Candle ---
+        row_curr = df_features.iloc[[-1]].copy()
+        X_curr = fe.get_feature_data(row_curr)
+        
+        if X_curr.isnull().values.any():
+            res_curr = None
+        else:
+            probs_c, ev_signal_c = mm.predict(X_curr)
+            res_curr = {
+                'ev': ev_signal_c[0],
+                'prob_down': probs_c[0][0],
+                'close': row_curr['Close'].values[0],
+                'time': row_curr['Open time'].values[0]
+            }
+
+        # --- 2. Last Closed Candle ---
+        row_last = df_features.iloc[[-2]].copy()
+        X_last = fe.get_feature_data(row_last)
+        
+        if X_last.isnull().values.any():
+            res_last = None
+        else:
+            probs_l, ev_signal_l = mm.predict(X_last)
+            res_last = {
+                'ev': ev_signal_l[0],
+                'prob_down': probs_l[0][0],
+                'close': row_last['Close'].values[0],
+                'time': row_last['Open time'].values[0]
+            }
             
-        # Predict
-        probs, ev_signal = mm.predict(X)
-        ev = ev_signal[0]
-        prob_down = probs[0][0] # Prob of Large Down
-        
-        return ev, prob_down
+        return res_curr, res_last, None
     except Exception as e:
-        return None, str(e)
+        return None, None, str(e)
 
 # 5. Model Predictions & Watchlist
 st.subheader("🧠 Model Predictions & Watchlist")
@@ -279,66 +299,75 @@ with col_add2:
 # Combine lists
 all_symbols = list(config.SYMBOLS) + st.session_state.custom_symbols
 
-# Create Prediction Table
-pred_data = []
+# Collect Data
+curr_data_list = []
+last_data_list = []
+
 for sym in all_symbols:
-    ev, prob_down = get_prediction(sym)
+    res_curr, res_last, err = get_prediction(sym)
     
-    # Get current price
-    try:
-        price = float(client.get_symbol_ticker(symbol=sym)['price'])
-    except:
-        price = 0.0
+    if err:
+        continue
         
-    if ev is not None:
-        signal = "HOLD"
+    # Helper to format signal
+    def get_signal(ev, prob_down):
         if prob_down > config.RISK_THRESHOLD:
-            signal = "RISK STOP 🔴"
+            return "RISK STOP 🔴"
         elif ev >= config.TIER_1_EV_THRESHOLD:
-            signal = "BUY (Tier 1) 🟢"
+            return "BUY (Tier 1) 🟢"
         elif ev >= config.TIER_2_EV_THRESHOLD:
-            signal = "BUY (Tier 2) 🟡"
-            
-        pred_data.append({
+            return "BUY (Tier 2) 🟡"
+        return "HOLD"
+
+    # Current
+    if res_curr:
+        curr_data_list.append({
             "Symbol": sym,
-            "Price": price,
-            "Expected Value (EV)": ev,
-            "Crash Prob": prob_down,
-            "Signal": signal
+            "Time": res_curr['time'].strftime('%H:%M'),
+            "Price": res_curr['close'],
+            "EV": res_curr['ev'],
+            "Crash Prob": res_curr['prob_down'],
+            "Signal": get_signal(res_curr['ev'], res_curr['prob_down'])
         })
-    else:
-         pred_data.append({
+        
+    # Last
+    if res_last:
+        last_data_list.append({
             "Symbol": sym,
-            "Price": price,
-            "Expected Value (EV)": 0,
-            "Crash Prob": 0,
-            "Signal": "Error/No Data"
+            "Time": res_last['time'].strftime('%H:%M'),
+            "Price": res_last['close'],
+            "EV": res_last['ev'],
+            "Crash Prob": res_last['prob_down'],
+            "Signal": get_signal(res_last['ev'], res_last['prob_down'])
         })
 
-if pred_data:
-    df_pred = pd.DataFrame(pred_data)
+# Display Tables
+st.markdown("### 1. Last Closed Candle (Used for Trading)")
+st.caption("This is the data the bot actually used for its last decision.")
+if last_data_list:
+    df_last = pd.DataFrame(last_data_list)
     st.dataframe(
-        df_pred.style.format({
+        df_last.style.format({
             "Price": "${:.4f}",
-            "Expected Value (EV)": "{:.4f}",
+            "EV": "{:.4f}",
             "Crash Prob": "{:.2%}"
         }).applymap(lambda x: 'color: red' if 'RISK' in str(x) else ('color: green' if 'BUY' in str(x) else ''), subset=['Signal']),
         use_container_width=True
     )
+else:
+    st.warning("No data available for last closed candle.")
 
-# 6. Market Data (Price Charts)
-st.subheader("📈 Market Data")
-selected_symbol = st.selectbox("Select Symbol", config.SYMBOLS)
-
-if selected_symbol:
-    try:
-        # Fetch klines (candlestick data)
-        klines = client.get_klines(symbol=selected_symbol, interval=Client.KLINE_INTERVAL_15MINUTE, limit=100)
-        df_klines = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'])
-        df_klines['timestamp'] = pd.to_datetime(df_klines['timestamp'], unit='ms')
-        df_klines['close'] = df_klines['close'].astype(float)
-        
-        fig_price = px.line(df_klines, x='timestamp', y='close', title=f'{selected_symbol} Price (15m)')
-        st.plotly_chart(fig_price, use_container_width=True)
-    except Exception as e:
-        st.error(f"Error fetching market data: {e}")
+st.markdown("### 2. Current Forming Candle (Live Preview)")
+st.caption("This is what the model sees RIGHT NOW. This will change until the candle closes.")
+if curr_data_list:
+    df_curr = pd.DataFrame(curr_data_list)
+    st.dataframe(
+        df_curr.style.format({
+            "Price": "${:.4f}",
+            "EV": "{:.4f}",
+            "Crash Prob": "{:.2%}"
+        }).applymap(lambda x: 'color: red' if 'RISK' in str(x) else ('color: green' if 'BUY' in str(x) else ''), subset=['Signal']),
+        use_container_width=True
+    )
+else:
+    st.warning("No data available for current candle.")
