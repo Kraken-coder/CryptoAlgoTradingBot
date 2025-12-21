@@ -13,9 +13,6 @@ env/
 *.db
 *.sqlite3
 
-# Model
-*.pkl
-*.joblib
 
 # IDE
 .vscode/
