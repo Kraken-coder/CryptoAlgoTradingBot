@@ -152,6 +152,9 @@ class TradingBot:
         numeric_cols = ["Open", "High", "Low", "Close", "Volume"]
         df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, axis=1)
         
+        # Drop the last row (incomplete candle) to match EDA logic
+        df = df.iloc[:-1]
+        
         return df
 
     def run_cycle(self):
