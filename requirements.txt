@@ -1,0 +1,9 @@
+pandas
+numpy
+python-binance
+scikit-learn
+joblib
+streamlit
+plotly
+streamlit-autorefresh
+python-dotenv

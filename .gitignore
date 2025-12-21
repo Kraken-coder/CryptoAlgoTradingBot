@@ -1,0 +1,25 @@
+# Environment Variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Database
+*.db
+*.sqlite3
+
+# Model
+*.pkl
+*.joblib
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
