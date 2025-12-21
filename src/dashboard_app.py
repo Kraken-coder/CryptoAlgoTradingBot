@@ -248,7 +248,7 @@ def get_prediction(symbol):
                 'ev': ev_signal_c[0],
                 'prob_down': probs_c[0][0],
                 'close': row_curr['Close'].values[0],
-                'time': row_curr['Open time'].values[0]
+                'time': pd.to_datetime(row_curr['Open time'].values[0])
             }
 
         # --- 2. Last Closed Candle ---
@@ -263,7 +263,7 @@ def get_prediction(symbol):
                 'ev': ev_signal_l[0],
                 'prob_down': probs_l[0][0],
                 'close': row_last['Close'].values[0],
-                'time': row_last['Open time'].values[0]
+                'time': pd.to_datetime(row_last['Open time'].values[0])
             }
             
         return res_curr, res_last, None
