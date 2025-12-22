@@ -371,3 +371,20 @@ if curr_data_list:
     )
 else:
     st.warning("No data available for current candle.")
+
+# 6. Market Data (Price Charts)
+st.subheader("📈 Market Data")
+selected_symbol = st.selectbox("Select Symbol", all_symbols)
+
+if selected_symbol:
+    try:
+        # Fetch klines (candlestick data)
+        klines = client.get_klines(symbol=selected_symbol, interval=Client.KLINE_INTERVAL_15MINUTE, limit=100)
+        df_klines = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'])
+        df_klines['timestamp'] = pd.to_datetime(df_klines['timestamp'], unit='ms')
+        df_klines['close'] = df_klines['close'].astype(float)
+        
+        fig_price = px.line(df_klines, x='timestamp', y='close', title=f'{selected_symbol} Price (15m)')
+        st.plotly_chart(fig_price, use_container_width=True)
+    except Exception as e:
+        st.error(f"Error fetching market data: {e}")
