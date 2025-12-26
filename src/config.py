@@ -12,7 +12,10 @@ API_SECRET = os.getenv("BINANCE_SPOT_TESTNET_API_SECRET")
 # Trading Configuration
 
 # Symbols (Portfolio)
-SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'ADAUSDT', 'XRPUSDT']
+SYMBOLS = [
+    'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'SOLUSDT', 
+    'LTCUSDT', 'CRVUSDT', 'SHIBUSDT', 'ADAUSDT', 'UNIUSDT', 'AAVEUSDT'
+]
 TIMEFRAME = "4h"
 
 # Risk Management

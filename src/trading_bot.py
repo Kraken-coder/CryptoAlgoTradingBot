@@ -257,7 +257,9 @@ class TradingBot:
             planned_exit = datetime.fromisoformat(local_pos['planned_exit'])
             now = datetime.now()
             
-            if now >= planned_exit:
+            # Check if we are within the exit window (tolerance of 15 mins before planned exit)
+            # This handles cases where execution is slightly before the exact second of planned exit
+            if now >= (planned_exit - timedelta(minutes=15)):
                 # Check for extension (Tier 1 only)
                 if local_pos['tier'] == 1 and ev >= config.EXTENSION_EV_THRESHOLD:
                     print("Signal: Extending Tier 1 Position")
@@ -309,6 +311,8 @@ class TradingBot:
             
             hold_periods = config.TIER_1_HOLD_PERIOD if tier == 1 else config.TIER_2_HOLD_PERIOD
             planned_exit = datetime.now() + timedelta(hours=4 * hold_periods)
+            # Align exit time to the start of the minute/hour (strip seconds/microseconds)
+            planned_exit = planned_exit.replace(second=0, microsecond=0)
             
             position = {
                 'symbol': symbol,
